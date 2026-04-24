@@ -1,12 +1,11 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import google.generativeai as genai
-import json
 import os
 
 app = Flask(__name__)
-# Railway/Render-дегі фронтендпен байланыс үшін CORS қосу:
-CORS(app) 
+# CORS-ты барлық домендерге рұқсат беретіндей етіп баптау
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 # 1. API кілтін Environment Variables бөлімінен алады
 API_KEY = os.environ.get("GEMINI_API_KEY")
