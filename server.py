@@ -1,65 +1,49 @@
+import os
+import json
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import google.generativeai as genai
-import os
+from groq import Groq
 
 app = Flask(__name__)
-# CORS-ты барлық домендерге рұқсат беретіндей етіп баптау
-CORS(app, resources={r"/*": {"origins": "*"}})
+CORS(app)
 
-# 1. API кілтін Environment Variables бөлімінен алады
-API_KEY = os.environ.get("GEMINI_API_KEY")
-if API_KEY:
-    genai.configure(api_key=API_KEY)
-else:
-    print("ҚАТЕ: API кілті табылмады!")
+# Render-дегі Environment Variables-тен кілтті алады
+client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
-# Сіз сұраған ең жаңа және жылдам модель (Gemini 2.0 Flash)
-# Ескерту: 2.5 нұсқасы ресми шыққан соң осы жерді ғана өзгертесіз
-model = genai.GenerativeModel('gemini-2.0-flash')
-
-@app.route('/api/tests', methods=['GET'])
+@app.route('/generate', methods=['GET'])
 def generate_tests():
     topic = request.args.get('topic')
-    
     if not topic:
-        return jsonify({"error": "Тақырыпты көрсетіңіз"}), 400
-
-    prompt = f"""
-    Сен кәсіби оқытушысың. Пайдаланушы "{topic}" тақырыбы бойынша тест тапсырғысы келеді.
-    Дәл 10 тест сұрағын құрастыр. 4 жауап нұсқасы, біреуі дұрыс.
-    Әр сұраққа неге бұл жауап дұрыс екенін түсіндіретін қысқаша түсініктеме (explanation) жаз.
-    Жауапты JSON форматында қайтар: массив объектілер. Қосымша мәтінсіз.
-    Тіл: Қазақ тілі.
-    [
-      {{
-          "question": "сұрақ",
-          "options": ["1", "2", "3", "4"],
-          "correctAnswer": "дұрыс",
-          "explanation": "түсіндірме"
-      }}
-    ]
-    """
+        return jsonify({"error": "Тақырыпты жазыңыз"}), 400
 
     try:
-        # Модельге сұраныс жіберу
-        response = model.generate_content(prompt)
+        # Groq-қа сұраныс жіберу
+        completion = client.chat.completions.create(
+            messages=[
+                {
+                    "role": "system",
+                    "content": "Сен тест құрастырушысың. Пайдаланушы берген тақырып бойынша 10 сұрақтан тұратын тестті тек JSON форматында қайтар. Формат: [{'question': '...', 'options': ['A', 'B', 'C', 'D'], 'answer': '...', 'explanation': '...'}]. Түсіндірме міндетті түрде болсын."
+                },
+                {
+                    "role": "user",
+                    "content": topic,
+                }
+            ],
+            model="llama-3.3-70b-versatile",
+            response_format={"type": "json_object"}
+        )
         
-        # Жауапты тазалау (артық белгілерді алып тастау)
-        content = response.text.strip()
-        if content.startswith('```json'):
-            content = content[7:-3]
-        elif content.startswith('```'):
-            content = content[3:-3]
-            
-        tests_data = json.loads(content)
-        return jsonify(tests_data)
-        
+        # Жауапты алу және JSON ретінде қайтару
+        result = json.loads(completion.choices[0].message.content)
+        # Егер ИИ жауапты объектіге орап жіберсе (мысалы, {"questions": [...]})
+        if isinstance(result, dict) and 'questions' in result:
+            return jsonify(result['questions'])
+        return jsonify(result)
+
     except Exception as e:
-        print(f"Генерация қатесі: {e}")
+        print(f"Error: {e}")
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    # Портқа автоматты бейімделу (Railway және Render үшін)
-    port = int(os.environ.get("PORT", 5000))
+    port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
