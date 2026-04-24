@@ -22,7 +22,7 @@ def generate_tests():
             messages=[
                 {
                     "role": "system",
-                    "content": "Сен кәсіби тест құрастырушысың. Пайдаланушы берген тақырып бойынша 25 сұрақтан тұратын тестті тек JSON форматында қайтар. Формат: [{'question': '...', 'options': ['A', 'B', 'C', 'D'], 'answer': '...', 'explanation': '...'}]. Түсіндірме (explanation) міндетті түрде әр сұраққа болсын. Жауаптарды тек қазақ тілінде бер."
+                    "content": "Сен кәсіби тест құрастырушысың. Пайдаланушы берген тақырып бойынша 10 сұрақтан тұратын тестті тек JSON форматында қайтар. Формат: [{'question': '...', 'options': ['A', 'B', 'C', 'D'], 'answer': '...', 'explanation': '...'}]. Түсіндірме (explanation) міндетті түрде әр сұраққа болсын. Жауаптарды тек қазақ тілінде бер."
                 },
                 {
                     "role": "user",
@@ -36,9 +36,8 @@ def generate_tests():
         # Жауапты алу және JSON ретінде қайтару
         result = json.loads(completion.choices[0].message.content)
         
-        # Groq кейде нәтижені тізім ретінде немесе объект ішіндегі тізім ретінде қайтарады
+        # Сұрақтар тізімін тауып алу
         if isinstance(result, dict):
-            # Егер ИИ {"questions": [...]} форматында берсе, тек тізімді аламыз
             for key in result:
                 if isinstance(result[key], list):
                     return jsonify(result[key])
